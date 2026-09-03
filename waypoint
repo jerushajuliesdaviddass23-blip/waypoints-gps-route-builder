@@ -1,0 +1,175 @@
+using System.Text;
+
+namespace WayPoints
+{
+    // Class to store ALL waypoints from the file in a private array
+    // The array is an Abstract Data Type - data is private, accessed via public methods only
+    // Same encapsulation pattern taught in Lab 5 (LinkList class had private Link list)
+    class WayPointStore
+    {
+        private WayPoint[] wayPointArray;   // private array - the data store
+        private int count;                  // tracks how many waypoints are stored
+
+        // Constructor - creates the array sized exactly to the number of data lines in file
+        public WayPointStore(string fileName)
+        {
+            count = 0;
+            int size = countDataLines(fileName);            // count lines first to size array
+            wayPointArray = new WayPoint[size];             // create array of correct size
+            loadFromFile(fileName);                         // fill array from file
+        }
+
+        // Counts lines in file (excluding header and blank lines) to size the array
+        private int countDataLines(string fileName)
+        {
+            string[] lines = File.ReadAllLines(fileName);
+            int total = 0;
+            for (int i = 1; i < lines.Length; i++)         // skip line 0 (header)
+            {
+                if (lines[i] != "")
+                    total++;
+            }
+            return total;
+        }
+
+        // Reads the CSV file and loads each line as a WayPoint into the array
+        private void loadFromFile(string fileName)
+        {
+            string[] linesInFile = File.ReadAllLines(fileName);
+            int lineNumber = 0;
+
+            foreach (string line in linesInFile)
+            {
+                lineNumber++;
+                if (lineNumber != 1 && line != "")          // skip header line 1 and blank lines
+                {
+                    string[] features = line.Split(',');
+
+                    string name        = features[0];
+                    string code        = features[1];
+                    string latitude    = features[3];       // index 3 = lat  e.g. 5425.594N
+                    string longitude   = features[4];       // index 4 = lon  e.g. 00258.150W
+                    int elevation      = convertElevationToMeters(features[5]);
+                    string description = buildDescription(features);
+
+                    wayPointArray[count] = new WayPoint(name, code, latitude, longitude, elevation, description);
+                    count++;
+                }
+            }
+        }
+
+        // Description starts at column index 11, but may itself contain commas
+        // so we join all remaining columns (same logic as starter code)
+        private string buildDescription(string[] features)
+        {
+            StringBuilder desc = new StringBuilder();
+            int pos = 11;
+            while (pos < features.Length)
+            {
+                if (features[pos] != "" && features[pos] != " ")
+                    desc.Append(features[pos] + ",");
+                pos++;
+            }
+            // Remove trailing comma if present
+            string result = desc.ToString();
+            if (result.EndsWith(","))
+                result = result.TrimEnd(',');
+            return result;
+        }
+
+        // Converts elevation string to integer metres
+        // Some values are in feet (e.g. "328ft"), some in metres (e.g. "72M")
+        private int convertElevationToMeters(string elevationStr)
+        {
+            char[] unitChars = { 'f', 't', 'M', 'm' };
+            if (elevationStr.ToLower().EndsWith("m"))
+            {
+                return (int)Double.Parse(elevationStr.TrimEnd(unitChars));
+            }
+            double elevationFeet = Double.Parse(elevationStr.TrimEnd(unitChars));
+            return (int)(elevationFeet / 3.281);            // standard ft to m conversion
+        }
+
+        // Returns how many waypoints are stored
+        public int Count()
+        {
+            return count;
+        }
+
+        // Displays ALL waypoints in the array - loops through every element
+        public void DisplayAll()
+        {
+            Console.WriteLine("\n--- All WayPoints (" + count + " total) ---");
+            for (int i = 0; i < count; i++)
+            {
+                wayPointArray[i].Display();
+            }
+        }
+
+        // Searches array for a waypoint by EXACT name - returns the WayPoint object if found
+        // Returns null if not found
+        // Linear search O(n) - visits each element one at a time
+        public WayPoint SearchByName(string name)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                if (wayPointArray[i].Name.ToLower() == name.ToLower())
+                    return wayPointArray[i];
+            }
+            return null;    // not found
+        }
+
+        // Searches array for waypoints whose name STARTS WITH the given letters
+        // Returns array of matches (partial name / prefix search)
+        // e.g. SearchByPartialName("Amb") would find "Ambleside"
+        public WayPoint[] SearchByPartialName(string partialName)
+        {
+            // First pass: count matches so we can size result array
+            int matchCount = 0;
+            for (int i = 0; i < count; i++)
+            {
+                if (wayPointArray[i].Name.ToLower().StartsWith(partialName.ToLower()))
+                    matchCount++;
+            }
+
+            // Second pass: fill result array
+            WayPoint[] results = new WayPoint[matchCount];
+            int resultIndex = 0;
+            for (int i = 0; i < count; i++)
+            {
+                if (wayPointArray[i].Name.ToLower().StartsWith(partialName.ToLower()))
+                {
+                    results[resultIndex] = wayPointArray[i];
+                    resultIndex++;
+                }
+            }
+            return results;
+        }
+
+        // Searches for all waypoints at or below a given height (in metres)
+        // Returns array of matching WayPoint objects
+        public WayPoint[] SearchUnderHeight(int maxHeight)
+        {
+            // First pass: count matches
+            int matchCount = 0;
+            for (int i = 0; i < count; i++)
+            {
+                if (wayPointArray[i].Elevation <= maxHeight)
+                    matchCount++;
+            }
+
+            // Second pass: fill result array
+            WayPoint[] results = new WayPoint[matchCount];
+            int resultIndex = 0;
+            for (int i = 0; i < count; i++)
+            {
+                if (wayPointArray[i].Elevation <= maxHeight)
+                {
+                    results[resultIndex] = wayPointArray[i];
+                    resultIndex++;
+                }
+            }
+            return results;
+        }
+    }
+}
